@@ -22,13 +22,18 @@ func NewChunkReader(upstream io.Reader, maxChunkSize int) *ChunkReader {
 }
 
 func (c *ChunkReader) ReadBuffer(buffer *buf.Buffer) error {
+	// the rest of a chunk a short Read left goes first, whatever the buffer size;
+	// what does not fit stays in the cache
+	if c.cache != nil && !c.cache.IsEmpty() {
+		n, err := buffer.Write(c.cache.Bytes())
+		c.cache.Advance(n)
+		return err
+	}
 	if buffer.FreeLen() >= c.maxChunkSize {
 		return c.upstream.ReadBuffer(buffer)
 	}
 	if c.cache == nil {
 		c.cache = buf.NewSize(c.maxChunkSize)
-	} else if !c.cache.IsEmpty() {
-		return common.Error(buffer.ReadFrom(c.cache))
 	}
 	c.cache.Reset()
 	err := c.upstream.ReadBuffer(c.cache)
