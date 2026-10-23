@@ -1,6 +1,9 @@
 # sing
 
-![test](https://github.com/metacubex/sing/actions/workflows/test.yml/badge.svg)
-![lint](https://github.com/metacubex/sing/actions/workflows/lint.yml/badge.svg)
+Общая библиотека протоколов (буферы, копирование, адреса).
 
-Do you hear the people sing?
+Форк [metacubex/sing](https://github.com/metacubex/sing) для [miray](https://github.com/rityak/miray). Наш код — в ветке `miray`.
+
+## Что изменено
+
+- `bufio.ChunkReader.ReadBuffer` сначала отдаёт остаток чанка, который оставил в кэше короткий `Read`, и только потом читает следующий чанк. Раньше при буфере не меньше чанка кэш пропускался, и остаток терялся: сервер VMess, перед которым первое чтение короткое (peek ранних данных), терял часть первого чанка клиента.
