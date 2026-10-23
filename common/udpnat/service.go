@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/metacubex/sing/common"
@@ -89,7 +90,9 @@ func (s *Service[T]) NewContextPacket(ctx context.Context, key T, buffer *buf.Bu
 			s.nat.Delete(key)
 		}()
 	} else {
-		c.localAddr = metadata.Source
+		c.addrAccess.Lock()
+		c.localAddr = metadata.Source // the client moved (NAT rebinding): replies go to the new address
+		c.addrAccess.Unlock()
 	}
 	if common.Done(c.ctx) {
 		s.nat.Delete(key)
@@ -115,6 +118,7 @@ type conn struct {
 	ctx             context.Context
 	cancel          common.ContextCancelCauseFunc
 	data            chan packet
+	addrAccess      sync.RWMutex // localAddr changes while the handler reads it
 	localAddr       M.Socksaddr
 	remoteAddr      M.Socksaddr
 	source          N.PacketWriter
@@ -152,6 +156,8 @@ func (c *conn) Close() error {
 }
 
 func (c *conn) LocalAddr() net.Addr {
+	c.addrAccess.RLock()
+	defer c.addrAccess.RUnlock()
 	return c.localAddr
 }
 
