@@ -17,6 +17,11 @@ import (
 
 const MaxCopyExtendedOnceTimes = 10 // max CopyExtendedOnce execute times
 
+// DefaultIncreaseBufferAfter: a stream copy reads into frame-sized buffers (64 KiB, or the
+// writer's MTU) once this much has passed, as sagernet/sing: a bulk transfer then hands a
+// chunk writer (ss2022, AEAD) full chunks, half the chunks and writes of 32 KiB reads (T-126).
+const DefaultIncreaseBufferAfter = 512 * 1000
+
 func Copy(destination io.Writer, source io.Reader) (n int64, err error) {
 	if source == nil {
 		return 0, E.New("nil reader")
@@ -109,7 +114,11 @@ func CopyExtended(originSource io.Reader, destination N.ExtendedWriter, source N
 		})
 		if !needCopy || common.LowMemory {
 			var handled bool
-			handled, n, err = copyWaitWithPool(originSource, destination, readWaiter, readCounters, writeCounters)
+			handled, n, err = copyWaitWithPool(originSource, destination, readWaiter, N.ReadWaitOptions{
+				FrontHeadroom: frontHeadroom,
+				RearHeadroom:  rearHeadroom,
+				MTU:           N.CalculateMTU(source, destination),
+			}, readCounters, writeCounters)
 			if handled {
 				return
 			}
@@ -188,6 +197,9 @@ func CopyExtendedWithPool(originSource io.Reader, destination N.ExtendedWriter, 
 			counter(int64(dataLen))
 		}
 		notFirstTime = true
+		if !options.IncreaseBuffer && n >= DefaultIncreaseBufferAfter && !common.LowMemory {
+			options.IncreaseBuffer = true
+		}
 	}
 }
 

@@ -13,6 +13,10 @@ type ReadWaitOptions struct {
 	FrontHeadroom int
 	RearHeadroom  int
 	MTU           int
+	// IncreaseBuffer: stream reads fill a whole frame of the writer (its MTU, or 64 KiB)
+	// instead of BufferSize; the copy sets it once a connection has moved
+	// bufio.DefaultIncreaseBufferAfter bytes (as sagernet/sing).
+	IncreaseBuffer bool
 }
 
 func NewReadWaitOptions(source any, destination any) ReadWaitOptions {
@@ -40,6 +44,24 @@ func (o ReadWaitOptions) Copy(buffer *buf.Buffer) *buf.Buffer {
 }
 
 func (o ReadWaitOptions) NewBuffer() *buf.Buffer {
+	if o.IncreaseBuffer {
+		bufferSize := 65535
+		if o.MTU > 0 {
+			bufferSize = o.MTU
+		}
+		bufferSize += o.FrontHeadroom + o.RearHeadroom
+		if bufferSize > buf.MaxPooledBufferSize {
+			bufferSize = buf.MaxPooledBufferSize
+		}
+		buffer := buf.NewSize(bufferSize)
+		if o.FrontHeadroom > 0 {
+			buffer.Resize(o.FrontHeadroom, 0)
+		}
+		if o.RearHeadroom > 0 {
+			buffer.Reserve(o.RearHeadroom)
+		}
+		return buffer
+	}
 	return o.newBuffer(buf.BufferSize, true)
 }
 
