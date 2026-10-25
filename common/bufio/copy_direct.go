@@ -5,6 +5,7 @@ import (
 	"io"
 	"syscall"
 
+	"github.com/metacubex/sing/common"
 	"github.com/metacubex/sing/common/buf"
 	M "github.com/metacubex/sing/common/metadata"
 	N "github.com/metacubex/sing/common/network"
@@ -23,7 +24,7 @@ func copyDirect(source syscall.Conn, destination syscall.Conn, readCounters []N.
 	return
 }
 
-func copyWaitWithPool(originSource io.Reader, destination N.ExtendedWriter, source N.ReadWaiter, readCounters []N.CountFunc, writeCounters []N.CountFunc) (handled bool, n int64, err error) {
+func copyWaitWithPool(originSource io.Reader, destination N.ExtendedWriter, source N.ReadWaiter, options N.ReadWaitOptions, readCounters []N.CountFunc, writeCounters []N.CountFunc) (handled bool, n int64, err error) {
 	handled = true
 	var (
 		buffer       *buf.Buffer
@@ -55,6 +56,10 @@ func copyWaitWithPool(originSource io.Reader, destination N.ExtendedWriter, sour
 			counter(int64(dataLen))
 		}
 		notFirstTime = true
+		if !options.IncreaseBuffer && n >= DefaultIncreaseBufferAfter && !common.LowMemory {
+			options.IncreaseBuffer = true
+			source.InitializeReadWaiter(options)
+		}
 	}
 }
 
