@@ -58,17 +58,7 @@ func copyWaitWithPool(originSource io.Reader, destination N.ExtendedWriter, sour
 		notFirstTime = true
 		if !options.IncreaseBuffer && n >= DefaultIncreaseBufferAfter && !common.LowMemory {
 			options.IncreaseBuffer = true
-			vectorisedSource, isVectorisedSource := vectorisedFrom(source)
-			vectorisedDestination, isVectorisedDestination := explicitVectorisedWriter(destination)
-			if !isVectorisedSource || !isVectorisedDestination {
-				source.InitializeReadWaiter(options)
-				continue
-			}
-			vectorisedSource.InitializeReadWaiter(options)
-			var vectorisedN int64
-			vectorisedN, err = copyWaitVectorisedWithPool(originSource, vectorisedDestination, vectorisedSource, readCounters, writeCounters)
-			n += vectorisedN
-			return
+			source.InitializeReadWaiter(options)
 		}
 	}
 }
